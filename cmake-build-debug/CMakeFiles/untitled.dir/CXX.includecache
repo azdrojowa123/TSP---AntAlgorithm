@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+C:/Users/Aleksandra/Desktop/PEA/AntAlgo/main.cpp
+iostream
+-
+fstream
+-
+iostream
+-
+queue
+-
+windows.h
+-
+sstream
+-
+string
+-
+vector
+-
+unordered_map
+-
+
