@@ -7,8 +7,9 @@
 #include <string>
 #include <vector>
 #include <cmath>
-
+#include <map>
 #include <unordered_map>
+
 using namespace std;
 
 struct Ant{
@@ -33,30 +34,71 @@ Ant* newAnt(int start, int n){
     return ant;
 }
 
+//funkcja sprawdzająca czy w wektorze znajduje się już dany wierzchołek
+bool checkIfExsist(vector<int> route, int i){
+    for(int temp : route){
+        if (temp == i ){
+            return true;
+        }
+    }
+    return false;
+}
+
+vector<int> generateRandomCycleNN(vector<vector<int>> &graph, int& n){
+    vector<int> route;
+    int j = 0, max, next = 0, temp = 0;
+    while(j<n){
+        max = INT_MAX;
+        next = temp;
+        route.push_back(next);
+        for(int i = 0 ; i<n ; i++ ){
+            if(!checkIfExsist(route,i) && i!=next){
+                if (graph[next][i] < max) {
+                    temp = i;
+                    max = graph[next][i];
+                }
+            }
+        }
+        j++;
+    }
+    return route;
+}
+
+int costRoute(vector<int>&route, vector<vector<int>>&graph){
+    int sum=0;
+    for (int i=0;i<route.size()-1;i++){
+        sum += graph[route[i]][route[i+1]];
+    }
+    sum += graph[route[route.size()-1]][route[0]];
+    return sum;
+}
 
 
-void fillStart(vector<vector<double>> &pheromones, int &n, vector<vector<int>>&graph, int &b){
+void fillStart(vector<vector<double>> &pheromones, int &n, vector<vector<int>>&graph, double &b){
     double startVal;
     for(int j = 0; j<n; j++){
         pheromones[j].resize(n);
     }
+    vector<int> route = generateRandomCycleNN(graph,n);
+    double costRandom = (double)costRoute(route, graph);
     for(int i = 0; i<n ;i++){
         for(int j = 0; j<n ;j++){
-            startVal = 1/(pow(graph[i][j],b));
+            startVal = (double)n/costRandom;
             pheromones[i][j] = startVal;
         }
     }
 }
 
-int findNextVertex(unordered_map<int,double>&possibilities){
-    unordered_map<int,double>:: iterator itr, best;
-    double sum = 0, randNumber= ((double)rand() / RAND_MAX);
+
+
+int findNextVertex(map<double,int>&possibilities){
+    map<double,int>:: iterator itr;
+    double sum = 0, randNumber = ((double)rand() / RAND_MAX);
     int vertex;
     for(itr = possibilities.begin(); itr != possibilities.end(); itr++){
-        sum += itr->second;
-        best = itr;
+        sum += itr->first;
+        vertex = itr->second;
         if(sum > randNumber){
-            vertex = itr->first;
             break;
         }
     }
@@ -64,32 +106,26 @@ int findNextVertex(unordered_map<int,double>&possibilities){
     return vertex;
 }
 
-int findBestChoice(vector<int>&unvisited,vector<vector<double>>&pheromones,vector<vector<int>>&graph, int&start, int &b, int&a){
-    unordered_map<int,double> possibilities;
+
+
+int findBestChoice(vector<int>&unvisited,vector<vector<double>>&pheromones,vector<vector<int>>&graph, int&start, double &b, double&a){
+    map<double,int> possibilities;
     double possible, nominator, denominator, sum = 0; // nominator to licznik
     for(int i = 0; i<unvisited.size();i++){
         sum += pheromones[start][unvisited[i]];
     }
     for(int i = 0; i<unvisited.size(); i++){
         double temp = static_cast<double>(1)/graph[start][unvisited[i]];
-        nominator = pow(pheromones[start][unvisited[i]],a)*pow(temp,b);
-        denominator = pow(sum,a)*pow(sum,b);
-        possible =  nominator / denominator;
-        possibilities[unvisited[i]] = possible;
+        nominator = (double) pow((double)pheromones[start][unvisited[i]],a)*(double)pow(temp,b);
+        denominator = (double)pow(sum,a)*(double)pow(sum,b);
+        possible =  (double)nominator / (double)denominator;
+        possibilities[possible] = unvisited[i];
     }
 
     return findNextVertex(possibilities);
 }
 
-int costRoute(vector<int>&route, vector<vector<int>>&graph){
-    int sum=0;
-    for (int i=0;i<route.size()-1;i++){
-        sum += graph[route[i]][route[i+1]];
-        cout<<"sum: "<<sum<<endl;
-    }
-    sum += graph[route[route.size()-1]][route[0]];
-    return sum;
-}
+
 
 vector<int> findBestRoute(unordered_map<int, vector<int>>&lists){
     unordered_map<int,vector<int>>:: iterator itr;
@@ -105,45 +141,50 @@ vector<int> findBestRoute(unordered_map<int, vector<int>>&lists){
     return bestRoute;
 }
 
-void refreshPheromones(vector<vector<double>>&pheromones,vector<int>&route, int&cost, double&p){
+void refreshPheromones(vector<vector<double>>&pheromones,vector<int>&route, int&cost, double&p, int &n){
+
+    for(int j = 0; j<n ;j++){
+        for(int k = 0; k<n ;k++){
+            pheromones[j][k] *= p;
+        }
+    }
+    double temp = (double)(n)/(double)(cost);
     for (int i=0;i<route.size()-1;i++){
-        pheromones[route[i]][route[i+1]] = pheromones[route[i]][route[i+1]]*p + 1/cost;
+        pheromones[route[i]][route[i+1]] += temp;
+        pheromones[route[i+1]][route[i]] += temp;
+
     }
 }
 
 
-void AntAlgorithm(vector<vector<int>>&graph, int amount,int &finalCost,vector<int>&finalRoute, int&n, int&b, int&a, double&p) {
+void AntAlgorithm(vector<vector<int>>&graph, int amount,int &finalCost,vector<int>&finalRoute, int&n, double&b, double&a, double&p) {
 
     unordered_map<int,vector<int>> routes;
     vector<vector<double>> pheromones (n);
     int start, bestChoice;
     fillStart(pheromones, n, graph, b);
-    for(int k = 0;k<10; k++) {
+    for(int k = 0;k<1000; k++) {
+
         for (int i = 0; i < amount; i++) {
             start = rand() % n;
             Ant *ant = newAnt(start, n);
             ant->visited.push_back(start);
-            for (int j = 0; j < n; j++) {
+            for (int j = 0; j < n-1; j++) {
                 bestChoice = findBestChoice(ant->unVisited, pheromones, graph, start, b, a);
-                cout<<bestChoice;
                 ant->visited.push_back(bestChoice);
-                cout<<"Visited"<<endl;
-                for(int k = 0;k<ant->visited.size();k++){
-                    cout<<ant->visited[k]<<" ";
-                } cout<<endl;
                 ant->unVisited.erase(remove(ant->unVisited.begin(), ant->unVisited.end(), bestChoice), ant->unVisited.end());
-                cout<<"UNVisited"<<endl;
-                for(int k = 0;k<ant->unVisited.size();k++){
-                    cout<<ant->unVisited[k]<<" ";
-                } cout<<endl;
+                start = bestChoice;
             }
+            int cost = costRoute(ant->visited, graph);
             routes[costRoute(ant->visited, graph)] = ant->visited;
+            //refreshPheromones(pheromones, ant->visited, cost, p, n);
             delete ant;
 
         }
         finalRoute = findBestRoute(routes);
         finalCost = costRoute(finalRoute, graph);
-        refreshPheromones(pheromones, finalRoute, finalCost, p);
+        cout<<"cost: "<<finalCost<<endl;
+        refreshPheromones(pheromones, finalRoute, finalCost, p, n);
     }
 }
 
@@ -236,9 +277,9 @@ int main() {
                 int finalCost = 0;
                 vector<int>finalRoute;
                 double p = 0.5;
-                int a = 1;
-                int b = 2;
-                AntAlgorithm(graph, 10,finalCost,finalRoute, n, b, a, p);
+                double a = 1.1;
+                double b = 3;
+                AntAlgorithm(graph, n,finalCost,finalRoute, n, b, a, p);
                 cout<<finalCost<<endl;
 
                 /*timer.StartTimer();
