@@ -12,6 +12,30 @@
 
 using namespace std;
 
+//klasa licząca czas w milisekundach
+class HighResTimer
+{
+    LARGE_INTEGER start;
+    LARGE_INTEGER stop;
+    double frequency;
+public:
+    HighResTimer()
+    {
+        LARGE_INTEGER freq;
+        QueryPerformanceFrequency(&freq);
+        frequency = (double)freq.QuadPart;
+    }
+    void StartTimer()//rozpoczęcie liczenia czasu
+    {
+        QueryPerformanceCounter(&start);
+    }
+    double StopTimer()//skończenie liczenia czasu
+    {
+        QueryPerformanceCounter(&stop);
+        return ((LONGLONG)(stop.QuadPart - start.QuadPart)*1000.0/frequency); //wyliczenie wyniku w ms
+    }
+};
+
 struct Ant{
     vector<int> visited;
     vector<int> unVisited;
@@ -108,15 +132,14 @@ int findNextVertex(map<double,int>&possibilities){
 
 int findBestChoice(vector<int>&unvisited,vector<vector<double>>&pheromones,vector<vector<int>>&graph, int&start, double &b, double&a){
     map<double,int> possibilities;
-    double possible, nominator, denominator, sum = 0; // nominator to licznik
+    double possible, nominator, sum = 0; // nominator to licznik
     for(int i = 0; i<unvisited.size();i++){
-        sum += pheromones[start][unvisited[i]];
+        sum += (double)pow(pheromones[start][unvisited[i]],a)*(double)pow(pheromones[start][unvisited[i]],b);
     }
     for(int i = 0; i<unvisited.size(); i++){
         double temp = static_cast<double>(1)/graph[start][unvisited[i]];
         nominator = (double) pow((double)pheromones[start][unvisited[i]],a)*(double)pow(temp,b);
-        denominator = (double)pow(sum,a)*(double)pow(sum,b);
-        possible =  (double)nominator / (double)denominator;
+        possible =  (double)nominator / (double)sum;
         possibilities[possible] = unvisited[i];
     }
 
@@ -162,8 +185,8 @@ void refreshPheromonesQAS(vector<vector<double>>&pheromones,vector<int>&route, i
         }
     }
     for (int i=0;i<route.size()-1;i++){
-        pheromones[route[i]][route[i+1]] = pheromones[route[i]][route[i+1]]*p + (double)(n)/(double)(graph[route[i]][route[i+1]]);
-        //pheromones[route[i+1]][route[i]] += (double)(n)/(double)(graph[route[i+1]][route[i]]);
+        pheromones[route[i]][route[i+1]] += (double)(n)/(double)(graph[route[i]][route[i+1]]);
+        pheromones[route[i+1]][route[i]] += (double)(n)/(double)(graph[route[i+1]][route[i]]);
 
     }
 }
@@ -193,6 +216,7 @@ void AntAlgorithmQAS(vector<vector<int>>&graph, int amount, int &finalCost, vect
         }
         finalRoute = findBestRoute(routes);
         finalTemp = costRoute(finalRoute, graph);
+        cout<<finalTemp<<endl;
         if(finalTemp < finalCost){
             finalCost = finalTemp;
         }
@@ -224,6 +248,7 @@ void AntAlgorithmCAS(vector<vector<int>>&graph, int amount, int &finalCost, vect
         }
         finalRoute = findBestRoute(routes);
         tempFinal = costRoute(finalRoute, graph);
+        cout<<tempFinal<<endl;
         if(tempFinal < finalCost){
             finalCost = tempFinal;
         }
