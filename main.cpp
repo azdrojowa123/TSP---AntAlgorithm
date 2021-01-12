@@ -177,19 +177,27 @@ void refreshPheromones(vector<vector<double>>&pheromones,vector<int>&route, int&
     }
 }
 
-void refreshPheromonesQAS(vector<vector<double>>&pheromones,vector<int>&route, int&cost, double&p, int &n, vector<vector<int>>&graph){
+void refreshPheromones2(vector<vector<double>>&pheromones,vector<int>&route, int&cost, double&p, int &n){
 
-    for(int j = 0; j<n ;j++){
-        for(int k = 0; k<n ;k++){
-            pheromones[j][k] *= p;
-        }
-    }
+
+    double temp = (double)(n)/(double)(cost);
     for (int i=0;i<route.size()-1;i++){
-        pheromones[route[i]][route[i+1]] += (double)(n)/(double)(graph[route[i]][route[i+1]]);
-        pheromones[route[i+1]][route[i]] += (double)(n)/(double)(graph[route[i+1]][route[i]]);
+        pheromones[route[i]][route[i+1]] += temp;
+        pheromones[route[i+1]][route[i]] += temp;
 
     }
 }
+
+void refreshPheromonesQAS(vector<vector<double>>&pheromones,vector<int>&route, double&p, int &n, vector<vector<int>>&graph){
+
+    int size, last, previous;
+    size = route.size();
+    last = route.at(size-1);
+    previous = route.at(size-2);
+
+    pheromones[previous][last] = pheromones[previous][last]*p + (double)(n)/(double)(graph[previous][last]);
+}
+
 
 void AntAlgorithmQAS(vector<vector<int>>&graph, int amount, int &finalCost, vector<int>&finalRoute, int&n, double&b, double&a, double&p) {
 
@@ -209,18 +217,19 @@ void AntAlgorithmQAS(vector<vector<int>>&graph, int amount, int &finalCost, vect
                 ant->visited.push_back(bestChoice);
                 ant->unVisited.erase(remove(ant->unVisited.begin(), ant->unVisited.end(), bestChoice), ant->unVisited.end());
                 start = bestChoice;
+                refreshPheromonesQAS(pheromones, ant->visited, p, n, graph);
             }
             routes[costRoute(ant->visited, graph)] = ant->visited;
             delete ant;
 
         }
-        finalRoute = findBestRoute(routes);
+        //finalRoute = findBestRoute(routes);
         finalTemp = costRoute(finalRoute, graph);
         cout<<finalTemp<<endl;
         if(finalTemp < finalCost){
             finalCost = finalTemp;
         }
-        refreshPheromonesQAS(pheromones, finalRoute, finalTemp, p, n, graph);
+
     }
 }
 
@@ -228,6 +237,7 @@ void AntAlgorithmQAS(vector<vector<int>>&graph, int amount, int &finalCost, vect
 void AntAlgorithmCAS(vector<vector<int>>&graph, int amount, int &finalCost, vector<int>&finalRoute, int&n, double&b, double&a, double&p) {
 
     vector<vector<double>> pheromones (n);
+    unordered_map<int,vector<int>>::iterator ite;
     int start, bestChoice, tempFinal;
     fillStart(pheromones, n, graph, b);
     for(int k = 0;k<1000; k++) {
@@ -241,6 +251,8 @@ void AntAlgorithmCAS(vector<vector<int>>&graph, int amount, int &finalCost, vect
                 ant->visited.push_back(bestChoice);
                 ant->unVisited.erase(remove(ant->unVisited.begin(), ant->unVisited.end(), bestChoice), ant->unVisited.end());
                 start = bestChoice;
+
+
             }
             routes[costRoute(ant->visited, graph)] = ant->visited;
             delete ant;
@@ -252,7 +264,11 @@ void AntAlgorithmCAS(vector<vector<int>>&graph, int amount, int &finalCost, vect
         if(tempFinal < finalCost){
             finalCost = tempFinal;
         }
-        refreshPheromones(pheromones, finalRoute, tempFinal, p, n);
+        for (ite = routes.begin(); ite != routes.end(); ite++){
+            int costRoute = ite->first;
+            refreshPheromones(pheromones, ite->second, costRoute, p, n);
+        }
+
     }
 }
 
