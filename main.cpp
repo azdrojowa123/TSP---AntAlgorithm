@@ -1,6 +1,5 @@
 #include <iostream>
 #include <fstream>
-#include <iostream>
 #include <queue>
 #include <windows.h>
 #include <sstream>
@@ -36,12 +35,14 @@ public:
     }
 };
 
+//struktura mrówki
 struct Ant{
     vector<int> visited;
     vector<int> unVisited;
     int start;
 };
 
+//inicjalizacja nowej mrówki
 Ant* newAnt(int start, int n){
     vector<int> temp;
     for(int i = 0; i<n ; i++){
@@ -68,6 +69,7 @@ bool checkIfExsist(vector<int> route, int i){
     return false;
 }
 
+//wygenerowanie cyklu metodą NN
 vector<int> generateRandomCycleNN(vector<vector<int>> &graph, int& n){
     vector<int> route;
     int j = 0, max, next = 0, temp = 0;
@@ -88,6 +90,7 @@ vector<int> generateRandomCycleNN(vector<vector<int>> &graph, int& n){
     return route;
 }
 
+//wyliczenie kosztu ściezki
 int costRoute(vector<int>&route, vector<vector<int>>&graph){
     int sum=0;
     for (int i=0;i<route.size()-1;i++){
@@ -97,7 +100,7 @@ int costRoute(vector<int>&route, vector<vector<int>>&graph){
     return sum;
 }
 
-
+//wypełnienie wszystkich krawędzi feromonów wartością poczatkową
 void fillStart(vector<vector<double>> &pheromones, int &n, vector<vector<int>>&graph, double &b){
     for(int j = 0; j<n; j++){
         pheromones[j].resize(n);
@@ -112,18 +115,18 @@ void fillStart(vector<vector<double>> &pheromones, int &n, vector<vector<int>>&g
 }
 
 
+//wybranie wierzchołka na podstawie mapy z prawdopodobieństwami
 int findNextVertex(map<double,int>&possibilities){
     map<double,int>:: iterator itr;
     int vertex;
     for(itr = possibilities.begin(); itr != possibilities.end(); itr++){
         vertex = itr->second;
     }
-
     return vertex;
 }
 
 
-
+//funckja wyliczająca prawdopodobieństwa przejścia do kolejnych nieodwiedzonych jeszcze przez mrówkę miast
 int findBestChoice(vector<int>&unvisited,vector<vector<double>>&pheromones,vector<vector<int>>&graph, int&start, double &b, double&a){
     map<double,int> possibilities;
     double possible, nominator, sum = 0; // nominator to licznik
@@ -137,11 +140,11 @@ int findBestChoice(vector<int>&unvisited,vector<vector<double>>&pheromones,vecto
         possibilities[possible] = unvisited[i];
     }
 
-    return findNextVertex(possibilities);
+    return findNextVertex(possibilities); //przekierowanie do metody podejmującej decyzję w kwestii wyboru miasta
 }
 
 
-
+//znalezienie najlepszej ścieżki w mapie
 vector<int> findBestRoute(unordered_map<int, vector<int>>&lists){
     unordered_map<int,vector<int>>:: iterator itr;
     double min = DBL_MAX;
@@ -156,6 +159,7 @@ vector<int> findBestRoute(unordered_map<int, vector<int>>&lists){
     return bestRoute;
 }
 
+//cykliczne odparowanie feromonów w algorytmie CAS
 void refreshPheromonesCAS(vector<vector<double>>&pheromones,vector<int>&route, int&cost, double&p, int &n){
 
     double temp = (double)(n)/(double)(cost);
@@ -164,15 +168,15 @@ void refreshPheromonesCAS(vector<vector<double>>&pheromones,vector<int>&route, i
     }
 }
 
+//odparowanie feromonów na trasie route
 void refreshPheromonesEvaporate(vector<vector<double>>&pheromones,vector<int>&route, int&cost, double&p, int &n){
 
     for (int i=0;i<route.size()-1;i++){
         pheromones[route[i]][route[i+1]] = pheromones[route[i]][route[i+1]]*p;
-        //pheromones[route[i+1]][route[i]] += temp;
-
     }
 }
 
+//dodanie feromonów na krawędziach QAS
 void refreshPheromonesQAS(vector<vector<double>>&pheromones,vector<int>&route, double&p, int &n, vector<vector<int>>&graph){
 
     int size, last, previous;
@@ -183,17 +187,32 @@ void refreshPheromonesQAS(vector<vector<double>>&pheromones,vector<int>&route, d
     pheromones[previous][last] +=  (double)(n)/(double)(graph[previous][last]);
 }
 
+//sprawdzenie czy drogi poprzednia i nowa są takie same
+void checkIfRouteTheSame(vector<int>&last,vector<int>&previous,boolean &check){
+    for(int i = 0; i<last.size(); i++){
+        if(last.at(i) != previous.at(i)){
+            check = true;
+        }
+    }
+}
 
+
+//aglorytm QAS
 void AntAlgorithmQAS(vector<vector<int>>&graph, int amount, int &finalCost, vector<int>&finalRoute, int&n, double&b, double&a, double&p) {
-
 
     vector<vector<int>> finalll;
     vector<vector<double>> pheromones (n);
+    vector<int> previous;
+    double expectedTime = 1200000;
+    HighResTimer timer;
     int start, bestChoice, finalTemp;
+    boolean check;
     unordered_map<int,vector<int>>::iterator ite;
     fillStart(pheromones, n, graph, b);
-    for(int k = 0;k<1000; k++) {
+    timer.StartTimer();
+    for(int k = 0;k<100; k++) {
         unordered_map<int,vector<int>> routes;
+        check = false;
         for (int i = 0; i < amount; i++) {
             start = rand() % n;
             Ant *ant = newAnt(start, n);
@@ -206,12 +225,20 @@ void AntAlgorithmQAS(vector<vector<int>>&graph, int amount, int &finalCost, vect
                 refreshPheromonesQAS(pheromones, ant->visited, p, n, graph);
             }
             routes[costRoute(ant->visited, graph)] = ant->visited;
+            if(i>=1){
+                checkIfRouteTheSame(ant->visited,previous,check);
+            }
+            previous = ant->visited;
             delete ant;
+            double t2 = timer.StopTimer();
+            if (t2 > expectedTime) {
+                return;
+            }
 
         }
         finalRoute = findBestRoute(routes);
         finalTemp = costRoute(finalRoute, graph);
-        cout<<finalTemp<<endl;
+        //cout<<finalTemp<<endl;
         if(finalTemp < finalCost){
             finalCost = finalTemp;
         }
@@ -219,44 +246,63 @@ void AntAlgorithmQAS(vector<vector<int>>&graph, int amount, int &finalCost, vect
             int costRoute = ite->first;
             refreshPheromonesEvaporate(pheromones, ite->second, costRoute, p, n);
         }
+        if(check == false){
+            return;
+        }
 
     }
 }
 
-
+//algorytm CAS
 void AntAlgorithmCAS(vector<vector<int>>&graph, int amount, int &finalCost, vector<int>&finalRoute, int&n, double&b, double&a, double&p) {
 
-    vector<vector<double>> pheromones (n);
+    vector<vector<double>> pheromones (n); // wektor  z feromonami
     unordered_map<int,vector<int>>::iterator ite;
     int start, bestChoice, tempFinal;
-    fillStart(pheromones, n, graph, b);
-    for(int k = 0;k<1000; k++) {
+    double expectedTime = 1200000; // maksymalny czsa wykonania algorytmu
+    HighResTimer timer;
+    vector<int>previous;
+    fillStart(pheromones, n, graph, b); // wypełenienie wektora ze wszystkimi krawędziami poczatkową wartości feromonów
+    boolean check;
+    timer.StartTimer();
+    for(int k = 0;k<100; k++) {
         unordered_map<int,vector<int>> routes;
+        check = false;
         for (int i = 0; i < amount; i++) {
-            start = rand() % n;
-            Ant *ant = newAnt(start, n);
+            start = rand() % n; // wylosowanie wierzchołka startowego
+            Ant *ant = newAnt(start, n); // stworzenie nowej mrówki
             ant->visited.push_back(start);
             for (int j = 0; j < n-1; j++) {
-                bestChoice = findBestChoice(ant->unVisited, pheromones, graph, start, b, a);
-                ant->visited.push_back(bestChoice);
-                ant->unVisited.erase(remove(ant->unVisited.begin(), ant->unVisited.end(), bestChoice), ant->unVisited.end());
+                bestChoice = findBestChoice(ant->unVisited, pheromones, graph, start, b, a); // wybranie kolejnego wierzchołka
+                ant->visited.push_back(bestChoice); // dodanie go do wektora odiwedzonych
+                ant->unVisited.erase(remove(ant->unVisited.begin(), ant->unVisited.end(), bestChoice), ant->unVisited.end()); // usunięcie z wektora nieodwiedzonych wierzchołka do którego przeszliśmy
                 start = bestChoice;
             }
-            int cost = costRoute(ant->visited, graph);
-            refreshPheromonesCAS(pheromones,ant->visited,cost,p,n);
-            routes[costRoute(ant->visited, graph)] = ant->visited;
-            delete ant;
+            int cost = costRoute(ant->visited, graph); // koszt przejścia przebytej ttrasy
+            refreshPheromonesCAS(pheromones,ant->visited,cost,p,n); // dodanie feromonów
+            routes[costRoute(ant->visited, graph)] = ant->visited; // zapisanie trasy
+            if(i>=1){ // sprawdzenie czy nowa trasa jest równa poprzedniej
+                checkIfRouteTheSame(ant->visited,previous,check);
+            }
+            previous = ant->visited;
+            delete ant; // usunięcie mrówki
+            double t2 = timer.StopTimer();
+            if (t2 > expectedTime) {
+                return;
+            }
 
         }
-        finalRoute = findBestRoute(routes);
-        tempFinal = costRoute(finalRoute, graph);
-        cout<<tempFinal<<endl;
-        if(tempFinal < finalCost){
+        finalRoute = findBestRoute(routes); // znalezienie najlepszej trasy w jednej iteracji
+        tempFinal = costRoute(finalRoute, graph); // wyliczenie jej kosztu
+        if(tempFinal < finalCost){ // sprawdzenie czy nowy najniższy koszt jest niższy od globalnie najniższego
             finalCost = tempFinal;
         }
         for (ite = routes.begin(); ite != routes.end(); ite++){
             int costRoute = ite->first;
-            refreshPheromonesEvaporate(pheromones, ite->second, costRoute, p, n);
+            refreshPheromonesEvaporate(pheromones, ite->second, costRoute, p, n); // wyparowanie feromonów
+        }
+        if(check == false){ // sprawdzenie czy wszystkie mrówki podczas jednej iteracji przypadkiem nie przebyły tej samej trasy - warunek STOPU
+            return;
         }
 
     }
@@ -320,7 +366,7 @@ int main() {
     vector<int> route;
     vector<vector<int>> graph;
     ofstream csvFile;
-    //HighResTimer timer;
+    HighResTimer timer;
 
     ifstream myInitFile;
     myInitFile.open("initialiaze.INI");
@@ -351,13 +397,12 @@ int main() {
                 int finalCost = INT_MAX;
                 vector<int>finalRoute;
                 double p = 0.5;
-                double a = 1;
-                double b = 3;
+                double a = 7;
+                double b = 1;
+                timer.StartTimer();
                 AntAlgorithmCAS(graph, n, finalCost, finalRoute, n, b, a, p);
                 //AntAlgorithmQAS(graph, n, finalCost, finalRoute, n, b, a, p);
                 cout<<finalCost<<endl;
-
-                /*timer.StartTimer();
                 int t2 = timer.StopTimer(); //skończenie liczenia czasu
                 if(j == 0){
                     csvFile.open(csvName,  std::ios::out |  std::ios::app);
@@ -368,7 +413,7 @@ int main() {
                     csvFile.open(csvName,  std::ios::out |  std::ios::app);
                     csvFile<<finalCost<<","<<t2<<"\n";
                     csvFile.close();
-                }*/
+                }
             }
             clearVectors(graph,solution);
         }
